@@ -1,0 +1,31 @@
+version: '3.9'
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: docbridge-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Admin123
+      MYSQL_DATABASE: docbridge
+      MYSQL_USER: docbridge
+      MYSQL_PASSWORD: docbridge123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  elasticsearch:
+    image: elasticsearch:8.13.4
+    container_name: docbridge-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+volumes:
+  mariadb_data:
+  es_data:

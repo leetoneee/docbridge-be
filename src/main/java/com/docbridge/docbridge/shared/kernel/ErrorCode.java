@@ -75,7 +75,8 @@ public enum ErrorCode {
     // ----------------------------------------------------------------
     ROLE_NOT_FOUND          (HttpStatus.NOT_FOUND,             "ROLE_NOT_FOUND",            "Không tìm thấy role"),
     PERMISSION_NOT_FOUND    (HttpStatus.NOT_FOUND,             "PERMISSION_NOT_FOUND",      "Không tìm thấy permission"),
-    PERMISSION_ALREADY_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_ALREADY_ASSIGNED","Permission đã được gán cho role này");
+    PERMISSION_ALREADY_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_ALREADY_ASSIGNED","Permission đã được gán cho role này"),
+    PERMISSION_NOT_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_NOT_ASSIGNED","Permission chưa được gán cho role này");
 
     // ----------------------------------------------------------------
 

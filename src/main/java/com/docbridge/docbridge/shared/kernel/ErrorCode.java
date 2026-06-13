@@ -55,9 +55,13 @@ public enum ErrorCode {
     // ----------------------------------------------------------------
     // Account
     // ----------------------------------------------------------------
-    ACCOUNT_NOT_FOUND       (HttpStatus.NOT_FOUND,             "ACCOUNT_NOT_FOUND",         "Không tìm thấy tài khoản"),
-    ACCOUNT_EMAIL_DUPLICATED(HttpStatus.CONFLICT,              "ACCOUNT_EMAIL_DUPLICATED",  "Email tài khoản đã tồn tại"),
-    UNIT_ACCOUNT_EXISTS     (HttpStatus.CONFLICT,              "UNIT_ACCOUNT_EXISTS",       "Đơn vị đã có tài khoản đại diện"),
+    ACCOUNT_NOT_FOUND                (HttpStatus.NOT_FOUND,             "ACCOUNT_NOT_FOUND",           "Không tìm thấy tài khoản"),
+    ACCOUNT_EMAIL_DUPLICATED         (HttpStatus.CONFLICT,              "ACCOUNT_EMAIL_DUPLICATED",    "Email tài khoản đã tồn tại"),
+    UNIT_ACCOUNT_EXISTS              (HttpStatus.CONFLICT,              "UNIT_ACCOUNT_EXISTS",         "Đơn vị đã có tài khoản đại diện"),
+    ACCOUNT_ALREADY_LOCKED           (HttpStatus.BAD_REQUEST,           "ACCOUNT_ALREADY_LOCKED",      "Tài khoản đã bị khoá"),
+    ACCOUNT_NOT_LOCKED               (HttpStatus.BAD_REQUEST,           "ACCOUNT_NOT_LOCKED",          "Tài khoản không trong trạng thái khoá"),
+    CANNOT_MODIFY_ADMIN_ACCOUNT      (HttpStatus.FORBIDDEN,             "CANNOT_MODIFY_ADMIN_ACCOUNT", "Không thể thực hiện thao tác này với tài khoản Admin"),
+    EMAIL_ALREADY_EXISTS             (HttpStatus.CONFLICT,              "EMAIL_ALREADY_EXISTS",          "Email đã được sử dụng"),
 
     // ----------------------------------------------------------------
     // Transaction

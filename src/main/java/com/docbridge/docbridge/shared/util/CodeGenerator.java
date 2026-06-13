@@ -1,7 +1,11 @@
 package com.docbridge.docbridge.shared.util;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Sinh mã định danh theo business rules của DocBridge.
@@ -53,5 +57,40 @@ public final class CodeGenerator {
     /** Overload dùng ngày hiện tại, seqLength mặc định = 6 */
     public static String generateTransactionCode(long sequence) {
         return generateTransactionCode(LocalDate.now(), sequence, 6);
+    }
+
+    /**
+     * Sinh mật khẩu tạm thời: 12 ký tự, gồm chữ hoa, chữ thường, số, ký tự đặc biệt.
+     * Đảm bảo có ít nhất 1 ký tự mỗi nhóm.
+     */
+    public static String generateTempPassword() {
+        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lower = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "!@#$%^&*";
+        String all = upper + lower + digits + special;
+
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
+
+        // Đảm bảo ít nhất 1 ký tự mỗi nhóm
+        sb.append(upper.charAt(random.nextInt(upper.length())));
+        sb.append(lower.charAt(random.nextInt(lower.length())));
+        sb.append(digits.charAt(random.nextInt(digits.length())));
+        sb.append(special.charAt(random.nextInt(special.length())));
+
+        // Fill còn lại
+        for (int i = 4; i < 12; i++) {
+            sb.append(all.charAt(random.nextInt(all.length())));
+        }
+
+        // Shuffle để tránh pattern cố định ở đầu
+        List<Character> chars = new ArrayList<>();
+        for (char c : sb.toString().toCharArray()) chars.add(c);
+        Collections.shuffle(chars, random);
+
+        StringBuilder result = new StringBuilder();
+        chars.forEach(result::append);
+        return result.toString();
     }
 }

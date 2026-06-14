@@ -15,4 +15,6 @@ public interface RoleRepository extends JpaRepository<RoleEntity, Long> {
             WHERE r.id = :id
             """)
     Optional<RoleEntity> findByIdWithPermissions(@Param("id") Long id);
+
+    Optional<RoleEntity> findByCode(String code);
 }

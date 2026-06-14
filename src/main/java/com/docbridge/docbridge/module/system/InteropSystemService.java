@@ -116,7 +116,7 @@ public class InteropSystemService {
     // Helper
     // ----------------------------------------------------------------
     private InteropSystemEntity getOrThrow(Long id) {
-        return systemRepository.findByIdAndDeletedAtIsNull(id)
+        return systemRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.SYSTEM_NOT_FOUND));
     }
 }

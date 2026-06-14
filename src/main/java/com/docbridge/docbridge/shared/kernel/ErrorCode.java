@@ -45,12 +45,16 @@ public enum ErrorCode {
     // ----------------------------------------------------------------
     // Interop Unit
     // ----------------------------------------------------------------
-    UNIT_NOT_FOUND          (HttpStatus.NOT_FOUND,             "UNIT_NOT_FOUND",            "Không tìm thấy đơn vị liên thông"),
-    UNIT_EMAIL_DUPLICATED   (HttpStatus.CONFLICT,              "UNIT_EMAIL_DUPLICATED",     "Email đơn vị đã được sử dụng"),
-    UNIT_LOCKED             (HttpStatus.FORBIDDEN,             "UNIT_LOCKED",               "Đơn vị đang bị khoá, không thể thực hiện giao dịch"),
-    UNIT_NOT_ACTIVE         (HttpStatus.FORBIDDEN,             "UNIT_NOT_ACTIVE",           "Đơn vị chưa được kích hoạt"),
-    UNIT_ALREADY_APPROVED   (HttpStatus.CONFLICT,              "UNIT_ALREADY_APPROVED",     "Đơn vị đã được phê duyệt trước đó"),
-    UNIT_ALREADY_REJECTED   (HttpStatus.CONFLICT,              "UNIT_ALREADY_REJECTED",     "Đơn vị đã bị từ chối trước đó"),
+    UNIT_NOT_FOUND                (HttpStatus.NOT_FOUND,             "UNIT_NOT_FOUND",                  "Không tìm thấy đơn vị liên thông"),
+    UNIT_EMAIL_DUPLICATED         (HttpStatus.CONFLICT,              "UNIT_EMAIL_DUPLICATED",           "Email đơn vị đã được sử dụng"),
+    UNIT_LOCKED                   (HttpStatus.FORBIDDEN,             "UNIT_LOCKED",                     "Đơn vị đang bị khoá, không thể thực hiện giao dịch"),
+    UNIT_NOT_ACTIVE               (HttpStatus.FORBIDDEN,             "UNIT_NOT_ACTIVE",                 "Đơn vị chưa được kích hoạt"),
+    UNIT_ALREADY_APPROVED         (HttpStatus.CONFLICT,              "UNIT_ALREADY_APPROVED",           "Đơn vị đã được phê duyệt trước đó"),
+    UNIT_ALREADY_REJECTED         (HttpStatus.CONFLICT,              "UNIT_ALREADY_REJECTED",           "Đơn vị đã bị từ chối trước đó"),
+    UNIT_NOT_PENDING              (HttpStatus.BAD_REQUEST,           "UNIT_NOT_PENDING",                "Đơn vị không ở trạng thái chờ phê duyệt"),
+    UNIT_CANNOT_LOCK              (HttpStatus.BAD_REQUEST,           "UNIT_CANNOT_LOCK",                "Chỉ có thể khoá/mở khoá đơn vị đang ACTIVE hoặc LOCKED"),
+    UNIT_HAS_TRANSACTIONS         (HttpStatus.CONFLICT,              "UNIT_HAS_TRANSACTIONS",           "Không thể xoá đơn vị đã có giao dịch"),
+    UNIT_CANNOT_UPDATE_REJECTED   (HttpStatus.BAD_REQUEST,           "UNIT_CANNOT_UPDATE_REJECTED",     "Không thể cập nhật đơn vị đã bị từ chối"),
 
     // ----------------------------------------------------------------
     // Account

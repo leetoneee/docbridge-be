@@ -13,10 +13,10 @@ public interface InteropSystemRepository extends JpaRepository<InteropSystemEnti
     boolean existsByCode(String code);
 
     // Tìm theo id, chưa bị soft delete
-    Optional<InteropSystemEntity> findByIdAndDeletedAtIsNull(Long id);
+    Optional<InteropSystemEntity> findById(Long id);
 
     // Kiểm tra hệ thống có đơn vị nào không (dùng cho UC1.6)
-    @Query("SELECT COUNT(u) > 0 FROM InteropUnitEntity u WHERE u.systemId = :systemId")
+    @Query("SELECT COUNT(u) > 0 FROM InteropUnitEntity u WHERE u.system.id = :systemId")
     boolean existsUnitBySystemId(@Param("systemId") Long systemId);
 
     // Danh sách có filter (UC1.2 / UC1.7)

@@ -1,9 +1,6 @@
 package com.docbridge.docbridge.module.system;
 
-import com.docbridge.docbridge.module.system.dto.CreateSystemRequest;
-import com.docbridge.docbridge.module.system.dto.SystemFilterRequest;
-import com.docbridge.docbridge.module.system.dto.SystemResponse;
-import com.docbridge.docbridge.module.system.dto.UpdateSystemRequest;
+import com.docbridge.docbridge.module.system.dto.*;
 import com.docbridge.docbridge.shared.kernel.ApiResponse;
 import com.docbridge.docbridge.shared.kernel.AppException;
 import com.docbridge.docbridge.shared.kernel.ErrorCode;
@@ -16,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -56,7 +54,7 @@ public class InteropSystemService {
 
         return systemRepository
                 .findAllWithFilter(filter.getName(), filter.getStatus(), pageable)
-                .map(SystemResponse::from);
+                .map(e -> SystemResponse.from(e, systemRepository.countUnitBySystemId(e.getId())));
     }
 
     // ----------------------------------------------------------------
@@ -64,7 +62,8 @@ public class InteropSystemService {
     // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public SystemResponse findById(Long id) {
-        return SystemResponse.from(getOrThrow(id));
+        InteropSystemEntity entity = getOrThrow(id);
+        return SystemResponse.from(entity, systemRepository.countUnitBySystemId(id));
     }
 
     // ----------------------------------------------------------------
@@ -110,6 +109,14 @@ public class InteropSystemService {
         }
 
         systemRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SystemSummaryResponse> findAllForDropdown() {
+        return systemRepository.findAllByOrderByNameAsc()
+                .stream()
+                .map(SystemSummaryResponse::from)
+                .toList();
     }
 
     // ----------------------------------------------------------------

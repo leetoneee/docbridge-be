@@ -13,6 +13,7 @@ import com.docbridge.docbridge.shared.kernel.AppException;
 import com.docbridge.docbridge.shared.kernel.ErrorCode;
 import com.docbridge.docbridge.shared.security.SecurityUtils;
 import com.docbridge.docbridge.shared.util.CodeGenerator;
+import com.docbridge.docbridge.shared.util.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +33,7 @@ public class InteropUnitService {
     private final AccountRepository accountRepository;
     private final RoleSummaryRepository roleSummaryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     // ── UC2.1 — Tạo đơn vị liên thông ──────────────────────────────────────
     @Transactional
@@ -93,6 +95,7 @@ public class InteropUnitService {
                 || unit.getStatus() == InteropUnitStatus.LOCKED) {
             accountSummary = accountRepository.findByEmail(unit.getEmail())
                     .map(a -> UnitDetailResponse.UnitAccountSummary.builder()
+                            .accountId(a.getId())
                             .email(a.getEmail())
                             .status(a.getStatus().name())
                             .lastLoginAt(a.getLastLoginAt())
@@ -150,6 +153,40 @@ public class InteropUnitService {
         return UnitResponse.from(unit);
     }
 
+    // ── UC2.4 (Admin only) — Đổi email đơn vị ──────────────────────────────
+    @Transactional
+    public UnitResponse updateEmail(Long id, UpdateUnitEmailRequest req) {
+        InteropUnitEntity unit = findOrThrow(id);
+
+        if (unit.getStatus() == InteropUnitStatus.PENDING
+                || unit.getStatus() == InteropUnitStatus.REJECTED) {
+            throw new AppException(ErrorCode.UNIT_CANNOT_UPDATE_EMAIL);
+        }
+
+        String newEmail = req.getEmail();
+
+        // Email mới không được trùng với bất kỳ đơn vị nào khác
+        if (unitRepository.existsByEmailAndIdNot(newEmail, id)) {
+            throw new AppException(ErrorCode.UNIT_EMAIL_DUPLICATED);
+        }
+
+        // Cập nhật interop_unit.email
+        unit.setEmail(newEmail);
+
+        // Cập nhật account.email + reset is_temp_password
+        String tempPassword = CodeGenerator.generateTempPassword();
+        AccountEntity account = accountRepository.findByUnitId(unit.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ACCOUNT_NOT_FOUND));
+
+        account.setEmail(newEmail);
+        account.setTempPassword(true);
+        account.setPassword(passwordEncoder.encode(tempPassword));
+
+        emailService.sendTempPassword(newEmail, tempPassword);
+
+        return UnitResponse.from(unit);
+    }
+
     // ── UC2.5 — Phê duyệt ───────────────────────────────────────────────────
     @Transactional
     public ApproveUnitResult approve(Long id) {
@@ -169,6 +206,8 @@ public class InteropUnitService {
         Long unitRoleId = roleSummaryRepository.findByCode("UNIT")
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND))
                 .getId();
+
+        emailService.sendTempPassword(unit.getEmail(), tempPassword);
 
         AccountEntity account = AccountEntity.builder()
                 .roleId(unitRoleId)
@@ -230,9 +269,9 @@ public class InteropUnitService {
     public void delete(Long id) {
         InteropUnitEntity unit = findOrThrow(id);
 
-        if (unitRepository.hasAnyTransaction(id)) {
-            throw new AppException(ErrorCode.UNIT_HAS_TRANSACTIONS);
-        }
+//        if (unitRepository.hasAnyTransaction(id)) {
+//            throw new AppException(ErrorCode.UNIT_HAS_TRANSACTIONS);
+//        }
 
         // Nếu đã có account Unit → xoá account trước
         accountRepository.findByEmail(unit.getEmail())

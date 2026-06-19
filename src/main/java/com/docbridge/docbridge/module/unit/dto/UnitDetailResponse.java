@@ -33,6 +33,7 @@ public class UnitDetailResponse {
     @Getter
     @Builder
     public static class UnitAccountSummary {
+        private Long accountId;
         private String email;
         private String status;
         private LocalDateTime lastLoginAt;

@@ -14,6 +14,7 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
 
     Optional<AccountEntity> findByEmail(String email);
 
+    Optional<AccountEntity> findByUnitId(Long unitId);
     /**
      * Lọc theo roleCode và/hoặc status. Null = bỏ qua filter đó.
      * Mặc định luôn exclude ADMIN khỏi kết quả.

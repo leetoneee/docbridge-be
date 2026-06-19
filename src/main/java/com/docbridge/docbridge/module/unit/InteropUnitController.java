@@ -51,6 +51,20 @@ public class InteropUnitController {
         return ResponseEntity.ok(ApiResponse.success(unitService.detail(id)));
     }
 
+    // ── UC2.4 (Admin only) — Đổi email đơn vị ──────────────────────────────
+    @PatchMapping("/{id}/email")
+    @PreAuthorize("hasAuthority('UNIT_UPDATE')")
+    @Operation(summary = "Đổi email đơn vị liên thông (Admin only)",
+            description = "Cập nhật đồng thời interop_unit.email và account.email trong 1 transaction. " +
+                    "Tự động reset is_temp_password = true — Unit phải đổi mật khẩu ở lần đăng nhập tiếp theo")
+    public ResponseEntity<ApiResponse<UnitResponse>> updateEmail(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUnitEmailRequest request) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật email thành công", unitService.updateEmail(id, request)));
+    }
+
     // ── UC2.4 — Cập nhật ────────────────────────────────────────────────────
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('UNIT_UPDATE')")

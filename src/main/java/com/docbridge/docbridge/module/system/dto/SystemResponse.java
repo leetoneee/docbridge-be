@@ -15,6 +15,7 @@ public class SystemResponse {
     private String code;
     private String name;
     private String description;
+    private long unitCount;
     private InteropSystemStatus status;
     private Long createdBy;
     private LocalDateTime createdAt;
@@ -30,6 +31,20 @@ public class SystemResponse {
                 .createdBy(entity.getCreatedBy())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    public static SystemResponse from(InteropSystemEntity entity, long unitCount) {
+        return SystemResponse.builder()
+                .id(entity.getId())
+                .code(entity.getCode())
+                .name(entity.getName())
+                .description(entity.getDescription())
+                .status(entity.getStatus())
+                .createdBy(entity.getCreatedBy())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .unitCount(unitCount)
                 .build();
     }
 }

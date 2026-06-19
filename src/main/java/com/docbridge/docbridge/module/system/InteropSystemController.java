@@ -1,9 +1,6 @@
 package com.docbridge.docbridge.module.system;
 
-import com.docbridge.docbridge.module.system.dto.CreateSystemRequest;
-import com.docbridge.docbridge.module.system.dto.SystemFilterRequest;
-import com.docbridge.docbridge.module.system.dto.SystemResponse;
-import com.docbridge.docbridge.module.system.dto.UpdateSystemRequest;
+import com.docbridge.docbridge.module.system.dto.*;
 import com.docbridge.docbridge.shared.kernel.ApiResponse;
 import com.docbridge.docbridge.shared.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/interop-systems")
@@ -116,4 +115,19 @@ public class InteropSystemController {
         systemService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Xoá hệ thống liên thông thành công"));
     }
+
+
+    // ----------------------------------------------------------------
+    // Trả về danh sách hệ thống dạng rút gọn
+    // DELETE /api/interop-systems/{id}
+    // ----------------------------------------------------------------
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('SYSTEM_VIEW')")
+    @Operation(summary = "Danh sách hệ thống liên thông dạng rút gọn cho dropdown")
+    public ResponseEntity<ApiResponse<List<SystemSummaryResponse>>> findAllForDropdown() {
+        return ResponseEntity.ok(
+                ApiResponse.success("Lấy danh sách hệ thống liên thông thành công",
+                        systemService.findAllForDropdown()));
+    }
+
 }

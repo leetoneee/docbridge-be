@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/interop-systems")
+@RequestMapping("/api/v1/interop-systems")
 @RequiredArgsConstructor
 @Tag(name = "Interop System", description = "Quản lý hệ thống liên thông")
 public class InteropSystemController {

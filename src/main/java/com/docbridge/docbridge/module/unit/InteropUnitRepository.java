@@ -21,12 +21,12 @@ public interface InteropUnitRepository extends JpaRepository<InteropUnitEntity, 
     long countActiveBySystemId(@Param("systemId") Long systemId);
 
     // Kiểm tra đơn vị có giao dịch nào chưa (để block xoá)
-//    @Query("""
-//        SELECT COUNT(t) > 0
-//        FROM TransactionEntity t
-//        WHERE t.senderUnit.id = :unitId OR t.receiverUnit.id = :unitId
-//        """)
-//    boolean hasAnyTransaction(@Param("unitId") Long unitId);
+    @Query("""
+        SELECT COUNT(t) > 0
+        FROM TransactionEntity t
+        WHERE t.senderUnitId = :unitId OR t.receiverUnitId = :unitId
+        """)
+    boolean hasAnyTransaction(@Param("unitId") Long unitId);
 
     // Filter + search (UC2.2, UC2.8)
     @Query("""

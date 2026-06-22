@@ -12,7 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/units")
+@RequestMapping("/api/v1/units")
 @RequiredArgsConstructor
 @Tag(name = "Interop Unit", description = "Quản lý đơn vị liên thông")
 public class InteropUnitController {

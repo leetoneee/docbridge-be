@@ -269,9 +269,9 @@ public class InteropUnitService {
     public void delete(Long id) {
         InteropUnitEntity unit = findOrThrow(id);
 
-//        if (unitRepository.hasAnyTransaction(id)) {
-//            throw new AppException(ErrorCode.UNIT_HAS_TRANSACTIONS);
-//        }
+        if (unitRepository.hasAnyTransaction(id)) {
+            throw new AppException(ErrorCode.UNIT_HAS_TRANSACTIONS);
+        }
 
         // Nếu đã có account Unit → xoá account trước
         accountRepository.findByEmail(unit.getEmail())

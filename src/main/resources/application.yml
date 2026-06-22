@@ -26,6 +26,8 @@ spring:
 
 
 app:
+  cors:
+    allowed-origins: ${APP_URL}
   jwt:
     secret: your-super-secret-key-min-256-bits-long-here
     expiration: 86400000    # 24h ms

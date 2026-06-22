@@ -55,10 +55,31 @@ public final class SecurityUtils {
     }
 
     /**
+     * Lấy unitId của Unit đang đăng nhập.
+     * Ném FORBIDDEN nếu principal không phải role UNIT (unitId = null).
+     * Dùng trong các endpoint chỉ dành cho UNIT (Inbox / Outbox).
+     */
+    public static Long getCurrentUnitId() {
+        Authentication auth = getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        if (auth.getPrincipal() instanceof AccountPrincipalHolder holder) {
+            Long unitId = holder.getUnitId();
+            if (unitId == null) {
+                throw new AppException(ErrorCode.UNIT_NOT_FOUND);
+            }
+            return unitId;
+        }
+        throw new AppException(ErrorCode.UNAUTHORIZED);
+    }
+
+    /**
      * Interface marker để module auth implement.
      * Tránh circular dependency giữa shared/kernel và module/auth.
      */
     public interface AccountPrincipalHolder {
         Long getAccountId();
+        Long getUnitId();
     }
 }

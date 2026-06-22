@@ -4,10 +4,10 @@ services:
     image: mariadb:11.4
     container_name: docbridge-db
     environment:
-      MYSQL_ROOT_PASSWORD: Admin123
+      MYSQL_ROOT_PASSWORD:
       MYSQL_DATABASE: docbridge
-      MYSQL_USER: docbridge
-      MYSQL_PASSWORD: docbridge123
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3306:3306"
     volumes:

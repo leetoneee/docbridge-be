@@ -91,6 +91,10 @@ public enum ErrorCode {
 
     CANNOT_SEND_TO_SELF(HttpStatus.BAD_REQUEST,           "CANNOT_SEND_TO_SELF","Không thể gửi văn bản cho chính đơn vị mình"),
 
+    RECEIVER_SYSTEM_LOCKED(HttpStatus.BAD_REQUEST,      "RECEIVER_SYSTEM_LOCKED",      "Hệ thống của đơn vị nhận đang bị khoá"),
+
+    RECEIVER_UNIT_LOCKED(HttpStatus.BAD_REQUEST,        "RECEIVER_UNIT_LOCKED",        "Đơn vị nhận đang bị khoá"),
+
     // ----------------------------------------------------------------
     // Permission / Role
     // ----------------------------------------------------------------

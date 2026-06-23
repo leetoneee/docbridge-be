@@ -8,6 +8,9 @@ import lombok.Setter;
 @Setter
 public class AccountFilterRequest {
 
+    /** Tìm theo email, LIKE %email%. Null = không lọc. */
+    private String email;
+
     /** Code của role: ADMIN, OPERATOR, UNIT. Null = không lọc. */
     private String role;
 

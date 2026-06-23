@@ -104,7 +104,9 @@ public enum ErrorCode {
 
     PERMISSION_ALREADY_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_ALREADY_ASSIGNED","Permission đã được gán cho role này"),
 
-    PERMISSION_NOT_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_NOT_ASSIGNED","Permission chưa được gán cho role này");
+    PERMISSION_NOT_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_NOT_ASSIGNED","Permission chưa được gán cho role này"),
+
+    PERMISSION_PROTECTED(HttpStatus.FORBIDDEN,           "PERMISSION_PROTECTED","Permission này không được phép thay đổi");
 
     // ----------------------------------------------------------------
 

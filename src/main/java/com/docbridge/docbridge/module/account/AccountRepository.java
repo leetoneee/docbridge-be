@@ -25,9 +25,11 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
             WHERE r.code <> 'ADMIN'
               AND (:roleCode IS NULL OR r.code = :roleCode)
               AND (:status IS NULL OR a.status = :status)
+              AND (:email IS NULL OR LOWER(a.email) LIKE LOWER(CONCAT('%', :email, '%')))
             """)
     Page<AccountEntity> findByFilter(
             @Param("roleCode") String roleCode,
             @Param("status") AccountStatus status,
+            @Param("email") String email,
             Pageable pageable);
 }

@@ -122,12 +122,14 @@ public class PermissionService {
 
     @Transactional
     public RoleDetailResponse removePermission(Long roleId, Long permissionId) {
-        if (!roleRepository.existsById(roleId)) {
-            throw new AppException(ErrorCode.ROLE_NOT_FOUND);
-        }
+        RoleEntity role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
-        if (!permissionRepository.existsById(permissionId)) {
-            throw new AppException(ErrorCode.PERMISSION_NOT_FOUND);
+        PermissionEntity permission = permissionRepository.findById(permissionId)
+                .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
+
+        if ("ROLE_MANAGE".equals(permission.getCode()) && "ADMIN".equals(role.getCode())) {
+            throw new AppException(ErrorCode.PERMISSION_PROTECTED);
         }
 
         int deleted = rolePermissionRepository.deleteByRoleIdAndPermissionId(roleId, permissionId);

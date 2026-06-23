@@ -124,7 +124,7 @@ public class AccountService {
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
         return accountRepository
-                .findByFilter(roleCode, filter.getStatus(), pageable)
+                .findByFilter(roleCode, filter.getStatus(), filter.getEmail(), pageable)
                 .map(this::toResponse);
     }
 

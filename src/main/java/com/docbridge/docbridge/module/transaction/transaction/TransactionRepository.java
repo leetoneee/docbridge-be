@@ -20,8 +20,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     @Query("""
             SELECT t FROM TransactionEntity t
             WHERE t.senderUnitId = :unitId
-              AND (:documentCode IS NULL OR LOWER(t.documentCode) LIKE LOWER(CONCAT('%', :documentCode, '%')))
-              AND (:title        IS NULL OR LOWER(t.title)        LIKE LOWER(CONCAT('%', :title,        '%')))
+              AND (:keyword IS NULL OR LOWER(t.documentCode) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                    OR LOWER(t.title)        LIKE LOWER(CONCAT('%', :keyword,   '%')))
               AND (:receiverCode IS NULL OR EXISTS (
                     SELECT 1 FROM InteropUnitEntity u
                     WHERE u.id = t.receiverUnitId
@@ -34,8 +34,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             """)
     Page<TransactionEntity> findOutbox(
             @Param("unitId")       Long unitId,
-            @Param("documentCode") String documentCode,
-            @Param("title")        String title,
+            @Param("keyword")      String keyword,
             @Param("receiverCode") String receiverCode,
             @Param("status")       TransactionStatus status,
             @Param("from")         LocalDateTime from,
@@ -48,8 +47,8 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     @Query("""
             SELECT t FROM TransactionEntity t
             WHERE t.receiverUnitId = :unitId
-              AND (:documentCode IS NULL OR LOWER(t.documentCode) LIKE LOWER(CONCAT('%', :documentCode, '%')))
-              AND (:title        IS NULL OR LOWER(t.title)        LIKE LOWER(CONCAT('%', :title,        '%')))
+              AND (:keyword IS NULL OR LOWER(t.documentCode) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                    OR LOWER(t.title)        LIKE LOWER(CONCAT('%', :keyword,   '%')))
               AND (:senderCode   IS NULL OR EXISTS (
                     SELECT 1 FROM InteropUnitEntity u
                     WHERE u.id = t.senderUnitId
@@ -62,8 +61,7 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             """)
     Page<TransactionEntity> findInbox(
             @Param("unitId")       Long unitId,
-            @Param("documentCode") String documentCode,
-            @Param("title")        String title,
+            @Param("keyword")      String keyword,
             @Param("senderCode")   String senderCode,
             @Param("status")       TransactionStatus status,
             @Param("from")         LocalDateTime from,

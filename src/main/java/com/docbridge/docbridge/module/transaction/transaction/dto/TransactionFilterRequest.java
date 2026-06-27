@@ -11,8 +11,7 @@ import java.time.LocalDateTime;
 @Setter
 public class TransactionFilterRequest {
 
-    private String documentCode;
-    private String title;
+    private String keyword;
 
     /** Outbox: mã liên thông đơn vị nhận / Inbox: mã liên thông đơn vị gửi */
     private String counterpartCode;

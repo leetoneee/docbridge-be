@@ -11,9 +11,9 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 public class TransactionHistoryResponse {
-    private TransactionStatus fromStatus;
-    private TransactionStatus toStatus;
-    private String            reason;
-    private Long              actedBy;
-    private LocalDateTime     actedAt;
+    private TransactionStatus  fromStatus;
+    private TransactionStatus  toStatus;
+    private String             reason;
+    private ActorBriefResponse actedBy;
+    private LocalDateTime      actedAt;
 }

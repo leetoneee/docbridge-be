@@ -1,9 +1,12 @@
 package com.docbridge.docbridge.module.transaction.transaction;
 
+import com.docbridge.docbridge.module.transaction.account.AccountEmailRepository;
+import com.docbridge.docbridge.module.transaction.account.AccountEmailView;
 import com.docbridge.docbridge.module.transaction.transaction.dto.*;
 import com.docbridge.docbridge.module.transaction.transaction.dto.TransactionEntity;
 import com.docbridge.docbridge.module.transaction.transaction_history.TransactionHistoryEntity;
 import com.docbridge.docbridge.module.transaction.transaction_history.TransactionHistoryRepository;
+import com.docbridge.docbridge.module.transaction.transaction_history.dto.ActorBriefResponse;
 import com.docbridge.docbridge.module.transaction.transaction_history.dto.TransactionHistoryResponse;
 import com.docbridge.docbridge.shared.kernel.AppException;
 import com.docbridge.docbridge.shared.kernel.ErrorCode;
@@ -16,16 +19,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
 
-    private final TransactionRepository         transactionRepository;
-    private final TransactionHistoryRepository  historyRepository;
-    private final UnitTransactionRepository     unitRepository;
-    private final SystemTransactionRepository   systemRepository;
-    private final TransactionCodeGenerator      codeGenerator;
+    private final TransactionRepository transactionRepository;
+    private final TransactionHistoryRepository historyRepository;
+    private final UnitTransactionRepository unitRepository;
+    private final SystemTransactionRepository systemRepository;
+    private final TransactionCodeGenerator codeGenerator;
+    private final AccountEmailRepository accountEmailRepository;
 
     // ================================================================
     // UC5.1 — Tạo yêu cầu gửi văn bản
@@ -84,8 +91,7 @@ public class TransactionService {
 
         return transactionRepository.findOutbox(
                 unitId,
-                filter.getDocumentCode(),
-                filter.getTitle(),
+                filter.getKeyword(),
                 filter.getCounterpartCode(),
                 filter.getStatus(),
                 filter.getFrom(),
@@ -111,7 +117,7 @@ public class TransactionService {
     @Transactional
     public void cancel(String transactionCode, CancelTransactionRequest request) {
         Long accountId = SecurityUtils.getCurrentAccountId();
-        Long unitId    = SecurityUtils.getCurrentUnitId();
+        Long unitId = SecurityUtils.getCurrentUnitId();
 
         TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, true);
 
@@ -140,8 +146,7 @@ public class TransactionService {
 
         return transactionRepository.findInbox(
                 unitId,
-                filter.getDocumentCode(),
-                filter.getTitle(),
+                filter.getKeyword(),
                 filter.getCounterpartCode(),
                 filter.getStatus(),
                 filter.getFrom(),
@@ -167,7 +172,7 @@ public class TransactionService {
     @Transactional
     public void accept(String transactionCode, AcceptTransactionRequest request) {
         Long accountId = SecurityUtils.getCurrentAccountId();
-        Long unitId    = SecurityUtils.getCurrentUnitId();
+        Long unitId = SecurityUtils.getCurrentUnitId();
 
         TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, false);
 
@@ -190,7 +195,7 @@ public class TransactionService {
     @Transactional
     public void reject(String transactionCode, RejectTransactionRequest request) {
         Long accountId = SecurityUtils.getCurrentAccountId();
-        Long unitId    = SecurityUtils.getCurrentUnitId();
+        Long unitId = SecurityUtils.getCurrentUnitId();
 
         TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, false);
 
@@ -283,21 +288,36 @@ public class TransactionService {
     }
 
     private List<TransactionHistoryResponse> buildHistory(Long txId) {
-        return historyRepository.findByTransactionIdOrderByActedAtAsc(txId)
+        List<TransactionHistoryEntity> entries =
+                historyRepository.findByTransactionIdOrderByActedAtAsc(txId);
+
+        Set<Long> actorIds = entries.stream()
+                .map(TransactionHistoryEntity::getActedBy)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> emailById = accountEmailRepository.findEmailsByIds(actorIds)
                 .stream()
+                .collect(Collectors.toMap(AccountEmailView::getId, AccountEmailView::getEmail));
+
+        return entries.stream()
                 .map(h -> TransactionHistoryResponse.builder()
                         .fromStatus(h.getFromStatus())
                         .toStatus(h.getToStatus())
                         .reason(h.getReason())
-                        .actedBy(h.getActedBy())
+                        .actedBy(ActorBriefResponse.builder()
+                                .id(h.getActedBy())
+                                .email(emailById.getOrDefault(h.getActedBy(), "–"))
+                                .build())
                         .actedAt(h.getActedAt())
                         .build())
                 .toList();
     }
 
-    /** Map entity → response, tự load unit nếu chưa có. */
+    /**
+     * Map entity → response, tự load unit nếu chưa có.
+     */
     private TransactionResponse toResponseWithUnits(TransactionEntity tx,
-                                                     List<TransactionHistoryResponse> history) {
+                                                    List<TransactionHistoryResponse> history) {
         UnitTransactionSummary sender = unitRepository.findSummaryById(tx.getSenderUnitId())
                 .orElse(null);
         UnitTransactionSummary receiver = unitRepository.findSummaryById(tx.getReceiverUnitId())
@@ -306,9 +326,9 @@ public class TransactionService {
     }
 
     private TransactionResponse toResponse(TransactionEntity tx,
-                                            UnitTransactionSummary sender,
-                                            UnitTransactionSummary receiver,
-                                            List<TransactionHistoryResponse> history) {
+                                           UnitTransactionSummary sender,
+                                           UnitTransactionSummary receiver,
+                                           List<TransactionHistoryResponse> history) {
         return TransactionResponse.builder()
                 .id(tx.getId())
                 .transactionCode(tx.getTransactionCode())

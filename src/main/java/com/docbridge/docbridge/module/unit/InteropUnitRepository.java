@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface InteropUnitRepository extends JpaRepository<InteropUnitEntity, Long> {
@@ -27,6 +28,17 @@ public interface InteropUnitRepository extends JpaRepository<InteropUnitEntity, 
         WHERE t.senderUnitId = :unitId OR t.receiverUnitId = :unitId
         """)
     boolean hasAnyTransaction(@Param("unitId") Long unitId);
+
+    // Dropdown — chỉ lấy ACTIVE, tìm theo tên hoặc mã liên thông
+    @Query("""
+        SELECT u FROM InteropUnitEntity u
+        WHERE u.status = 'ACTIVE'
+          AND (:keyword IS NULL
+               OR LOWER(u.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(u.interopCode) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        ORDER BY u.name ASC
+        """)
+    List<InteropUnitEntity> findAllForDropdown(@Param("keyword") String keyword);
 
     // Filter + search (UC2.2, UC2.8)
     @Query("""

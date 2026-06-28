@@ -74,6 +74,27 @@ public final class SecurityUtils {
         throw new AppException(ErrorCode.UNAUTHORIZED);
     }
 
+    public static String getCurrentRole() {
+        Authentication auth = getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return null;
+        return auth.getAuthorities().stream()
+                .filter(a -> a.getAuthority().startsWith("ROLE_"))
+                .map(a -> a.getAuthority().substring(5))
+                .findFirst().orElse(null);
+    }
+
+    /** Lấy toàn bộ principal — dùng trong AuditLogService */
+    public static AccountPrincipalHolder getCurrentPrincipal() {
+        Authentication auth = getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        if (auth.getPrincipal() instanceof AccountPrincipalHolder holder) {
+            return holder;
+        }
+        throw new AppException(ErrorCode.UNAUTHORIZED);
+    }
+
     /**
      * Interface marker để module auth implement.
      * Tránh circular dependency giữa shared/kernel và module/auth.

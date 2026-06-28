@@ -73,6 +73,12 @@ public class AccountPrincipal implements UserDetails, SecurityUtils.AccountPrinc
         return authorities;
     }
 
+    @Override
+    public Long getAccountId() { return this.accountId; }
+
+    @Override
+    public Long getUnitId() { return this.unitId; }
+
     @Override public boolean isAccountNonExpired()  { return true; }
     @Override public boolean isAccountNonLocked()   { return isActive; }
     @Override public boolean isCredentialsNonExpired() { return true; }

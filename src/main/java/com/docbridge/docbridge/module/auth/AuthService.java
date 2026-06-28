@@ -1,5 +1,8 @@
 package com.docbridge.docbridge.module.auth;
 
+import com.docbridge.docbridge.module.log.audit.AuditAction;
+import com.docbridge.docbridge.module.log.audit.AuditLogDocument;
+import com.docbridge.docbridge.module.log.audit.AuditLogService;
 import com.docbridge.docbridge.shared.security.JwtUtil;
 import com.docbridge.docbridge.module.auth.dto.ChangePasswordRequest;
 import com.docbridge.docbridge.module.auth.dto.FirstLoginChangePasswordRequest;
@@ -7,6 +10,8 @@ import com.docbridge.docbridge.module.auth.dto.LoginRequest;
 import com.docbridge.docbridge.module.auth.dto.LoginResponse;
 import com.docbridge.docbridge.shared.kernel.AppException;
 import com.docbridge.docbridge.shared.kernel.ErrorCode;
+import com.docbridge.docbridge.shared.security.SecurityUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,27 +34,67 @@ public class AuthService {
     private final JwtUtil                 jwtUtil;
     private final AccountAuthRepository   accountAuthRepo;
     private final PasswordEncoder         passwordEncoder;
+    private final AuditLogService         auditLogService;
 
     // ----------------------------------------------------------------
     // UC4.1 — Đăng nhập
     // ----------------------------------------------------------------
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
-        // Spring Security xác thực email + password, ném exception nếu sai
-        AccountPrincipal principal = authenticate(request.getEmail(), request.getPassword());
+    public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String ip = getClientIp(httpRequest);
 
-        // Cập nhật last_login_at
+        AccountPrincipal principal;
+        try {
+            principal = authenticate(request.getEmail(), request.getPassword());
+        } catch (AppException ex) {
+            // Ghi log FAILURE — actorId null vì chưa xác thực được
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorEmail(request.getEmail())
+                    .action(AuditAction.LOGIN.name())
+                    .description("Đăng nhập thất bại")
+                    .ipAddress(ip)
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().name())
+                    .build());
+            throw ex;   // re-throw để GlobalExceptionHandler xử lý
+        }
+
         accountAuthRepo.updateLastLoginAt(principal.getAccountId(), LocalDateTime.now());
 
-        String token = jwtUtil.generate(principal);
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(principal.getAccountId())
+                .actorEmail(principal.getEmail())
+                .actorRole(principal.getRoleCode())
+                .action(AuditAction.LOGIN.name())
+                .description("Đăng nhập thành công")
+                .ipAddress(ip)
+                .result("SUCCESS")
+                .build());
 
+        String token = jwtUtil.generate(principal);
         return LoginResponse.builder()
                 .token(token)
                 .email(principal.getEmail())
                 .role(principal.getRoleCode())
                 .mustChangePassword(principal.isTempPassword())
                 .build();
+    }
+
+    // logout()
+    public void logout(HttpServletRequest request) {
+        // JWT stateless — không invalidate token server-side
+        // Chỉ ghi log; client tự xoá token
+        SecurityUtils.AccountPrincipalHolder principal = SecurityUtils.getCurrentPrincipal();
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(principal.getAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.LOGOUT.name())
+                .description("Đăng xuất")
+                .ipAddress(getClientIp(request))
+                .result("SUCCESS")
+                .build());
     }
 
     // ----------------------------------------------------------------
@@ -144,5 +189,12 @@ public class AuthService {
             throw new AppException(ErrorCode.VALIDATION_ERROR,
                     "Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số");
         }
+    }
+
+    // Helper — lấy IP
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) ip = request.getRemoteAddr();
+        return ip.split(",")[0].trim();
     }
 }

@@ -106,10 +106,14 @@ public enum ErrorCode {
 
     PERMISSION_NOT_ASSIGNED(HttpStatus.CONFLICT,           "PERMISSION_NOT_ASSIGNED","Permission chưa được gán cho role này"),
 
-    PERMISSION_PROTECTED(HttpStatus.FORBIDDEN,           "PERMISSION_PROTECTED","Permission này không được phép thay đổi");
+    PERMISSION_PROTECTED(HttpStatus.FORBIDDEN,           "PERMISSION_PROTECTED","Permission này không được phép thay đổi"),
 
     // ----------------------------------------------------------------
+    // Permission / Role
+    // ----------------------------------------------------------------
+    LOG_NOT_FOUND(HttpStatus.NOT_FOUND,             "LOG_NOT_FOUND","Không tìm thấy log");
 
+    // ----------------------------------------------------------------
     private final HttpStatus httpStatus;
     private final String code;
     private final String defaultMessage;

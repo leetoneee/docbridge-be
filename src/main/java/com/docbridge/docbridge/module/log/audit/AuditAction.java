@@ -1,0 +1,11 @@
+package com.docbridge.docbridge.module.log.audit;
+
+public enum AuditAction {
+    LOGIN, LOGOUT,
+    CREATE, UPDATE, DELETE,
+    APPROVE, REJECT,
+    LOCK, UNLOCK,
+    SEND, ACCEPT, REJECT_TRANSACTION, CANCEL,
+    RESET_PASSWORD, CHANGE_PASSWORD,
+    GRANT_PERMISSION, REVOKE_PERMISSION
+}

@@ -96,41 +96,57 @@ public class PermissionService {
 
     @Transactional
     public RoleDetailResponse assignPermission(Long roleId, Long permissionId) {
-        RoleEntity role = roleRepository.findByIdWithPermissions(roleId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+        try {
+            RoleEntity role = roleRepository.findByIdWithPermissions(roleId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
-        PermissionEntity permission = permissionRepository.findById(permissionId)
-                .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
+            PermissionEntity permission = permissionRepository.findById(permissionId)
+                    .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
 
-        if (rolePermissionRepository.existsByRoleIdAndPermissionId(roleId, permissionId)) {
-            throw new AppException(ErrorCode.PERMISSION_ALREADY_ASSIGNED);
+            if (rolePermissionRepository.existsByRoleIdAndPermissionId(roleId, permissionId)) {
+                throw new AppException(ErrorCode.PERMISSION_ALREADY_ASSIGNED);
+            }
+
+            RolePermissionEntity rolePermission = RolePermissionEntity.builder()
+                    .role(role)
+                    .permission(permission)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            rolePermissionRepository.save(rolePermission);
+
+            // Reload để trả về state mới nhất
+            RoleEntity updated = roleRepository.findByIdWithPermissions(roleId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(SecurityUtils.getCurrentAccountId())
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.GRANT_PERMISSION.name())
+                    .targetType(AuditTargetType.ROLE.name())
+                    .targetId(String.valueOf(roleId))
+                    .description("Gán quyền '" + permission.getCode()
+                            + "' cho role " + role.getCode())
+                    .result("SUCCESS")
+                    .build());
+
+            return RoleDetailResponse.from(updated);
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(SecurityUtils.getCurrentAccountId())
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.GRANT_PERMISSION.name())
+                    .targetType(AuditTargetType.ROLE.name())
+                    .targetId(String.valueOf(roleId))
+                    .description("Gán quyền thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        RolePermissionEntity rolePermission = RolePermissionEntity.builder()
-                .role(role)
-                .permission(permission)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        rolePermissionRepository.save(rolePermission);
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(SecurityUtils.getCurrentAccountId())
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.GRANT_PERMISSION.name())
-                .targetType(AuditTargetType.ROLE.name())
-                .targetId(String.valueOf(roleId))
-                .description("Gán quyền '" + permission.getCode()
-                        + "' cho role " + role.getCode())
-                .result("SUCCESS")
-                .build());
-
-        // Reload để trả về state mới nhất
-        RoleEntity updated = roleRepository.findByIdWithPermissions(roleId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-
-        return RoleDetailResponse.from(updated);
     }
 
     // -------------------------------------------------------------------------
@@ -139,37 +155,53 @@ public class PermissionService {
 
     @Transactional
     public RoleDetailResponse removePermission(Long roleId, Long permissionId) {
-        RoleEntity role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+        try {
+            RoleEntity role = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
-        PermissionEntity permission = permissionRepository.findById(permissionId)
-                .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
+            PermissionEntity permission = permissionRepository.findById(permissionId)
+                    .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
 
-        if ("ROLE_MANAGE".equals(permission.getCode()) && "ADMIN".equals(role.getCode())) {
-            throw new AppException(ErrorCode.PERMISSION_PROTECTED);
+            if ("ROLE_MANAGE".equals(permission.getCode()) && "ADMIN".equals(role.getCode())) {
+                throw new AppException(ErrorCode.PERMISSION_PROTECTED);
+            }
+
+            int deleted = rolePermissionRepository.deleteByRoleIdAndPermissionId(roleId, permissionId);
+
+            if (deleted == 0) {
+                throw new AppException(ErrorCode.PERMISSION_NOT_ASSIGNED);
+            }
+
+            RoleEntity updated = roleRepository.findByIdWithPermissions(roleId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(SecurityUtils.getCurrentAccountId())
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.REVOKE_PERMISSION.name())
+                    .targetType(AuditTargetType.ROLE.name())
+                    .targetId(String.valueOf(roleId))
+                    .description("Bỏ quyền '" + permission.getCode()
+                            + "' khỏi role " + role.getCode())
+                    .result("SUCCESS")
+                    .build());
+            
+            return RoleDetailResponse.from(updated);
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(SecurityUtils.getCurrentAccountId())
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.REVOKE_PERMISSION.name())
+                    .targetType(AuditTargetType.ROLE.name())
+                    .targetId(String.valueOf(roleId))
+                    .description("Bỏ quyền thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        int deleted = rolePermissionRepository.deleteByRoleIdAndPermissionId(roleId, permissionId);
-
-        if (deleted == 0) {
-            throw new AppException(ErrorCode.PERMISSION_NOT_ASSIGNED);
-        }
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(SecurityUtils.getCurrentAccountId())
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.REVOKE_PERMISSION.name())
-                .targetType(AuditTargetType.ROLE.name())
-                .targetId(String.valueOf(roleId))
-                .description("Bỏ quyền '" + permission.getCode()
-                        + "' khỏi role " + role.getCode())
-                .result("SUCCESS")
-                .build());
-        
-        RoleEntity updated = roleRepository.findByIdWithPermissions(roleId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-
-        return RoleDetailResponse.from(updated);
     }
 }

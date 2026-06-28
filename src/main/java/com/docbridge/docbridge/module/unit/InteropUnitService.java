@@ -232,85 +232,119 @@ public class InteropUnitService {
     @Transactional
     public ApproveUnitResult approve(Long id) {
         Long actorId = SecurityUtils.getCurrentAccountId();
-        InteropUnitEntity unit = findOrThrow(id);
 
-        if (unit.getStatus() != InteropUnitStatus.PENDING) {
-            throw new AppException(ErrorCode.UNIT_NOT_PENDING);
+        try {
+            InteropUnitEntity unit = findOrThrow(id);
+
+            if (unit.getStatus() != InteropUnitStatus.PENDING) {
+                throw new AppException(ErrorCode.UNIT_NOT_PENDING);
+            }
+
+            long seq = unitRepository.countActiveBySystemId(unit.getSystem().getId()) + 1;
+            String interopCode = CodeGenerator.generateInteropCode(unit.getSystem().getCode(), seq);
+
+            String tempPassword = CodeGenerator.generateTempPassword();
+
+            // Lấy roleId của UNIT từ RoleSummaryRepository (đã có sẵn trong module account)
+            Long unitRoleId = roleSummaryRepository.findByCode("UNIT")
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND))
+                    .getId();
+
+            emailService.sendTempPassword(unit.getEmail(), tempPassword);
+
+            AccountEntity account = AccountEntity.builder()
+                    .roleId(unitRoleId)
+                    .unitId(unit.getId())
+                    .email(unit.getEmail())
+                    .password(passwordEncoder.encode(tempPassword))
+                    .isTempPassword(true)
+                    .status(AccountStatus.ACTIVE)
+                    .createdBy(actorId)
+                    .build();
+
+            accountRepository.save(account);
+
+            unit.setInteropCode(interopCode);
+            unit.setStatus(InteropUnitStatus.ACTIVE);
+            unit.setApprovedBy(actorId);
+            unit.setApprovedAt(LocalDateTime.now());
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(actorId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.APPROVE.name())
+                    .targetType(AuditTargetType.INTEROP_UNIT.name())
+                    .targetId(String.valueOf(id))
+                    .description("Phê duyệt đơn vị '" + unit.getName()
+                            + "', mã liên thông " + interopCode)
+                    .result("SUCCESS")
+                    .build());
+
+            return ApproveUnitResult.builder()
+                    .interopCode(interopCode)
+                    .tempPassword(tempPassword)
+                    .build();
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(SecurityUtils.getCurrentAccountId())
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.APPROVE.name())
+                    .targetType(AuditTargetType.INTEROP_UNIT.name())
+                    .targetId(String.valueOf(id))
+                    .description("Phê duyệt đơn vị thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        long seq = unitRepository.countActiveBySystemId(unit.getSystem().getId()) + 1;
-        String interopCode = CodeGenerator.generateInteropCode(unit.getSystem().getCode(), seq);
-
-        String tempPassword = CodeGenerator.generateTempPassword();
-
-        // Lấy roleId của UNIT từ RoleSummaryRepository (đã có sẵn trong module account)
-        Long unitRoleId = roleSummaryRepository.findByCode("UNIT")
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND))
-                .getId();
-
-        emailService.sendTempPassword(unit.getEmail(), tempPassword);
-
-        AccountEntity account = AccountEntity.builder()
-                .roleId(unitRoleId)
-                .unitId(unit.getId())
-                .email(unit.getEmail())
-                .password(passwordEncoder.encode(tempPassword))
-                .isTempPassword(true)
-                .status(AccountStatus.ACTIVE)
-                .createdBy(actorId)
-                .build();
-
-        accountRepository.save(account);
-
-        unit.setInteropCode(interopCode);
-        unit.setStatus(InteropUnitStatus.ACTIVE);
-        unit.setApprovedBy(actorId);
-        unit.setApprovedAt(LocalDateTime.now());
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(actorId)
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.APPROVE.name())
-                .targetType(AuditTargetType.INTEROP_UNIT.name())
-                .targetId(String.valueOf(id))
-                .description("Phê duyệt đơn vị '" + unit.getName()
-                        + "', mã liên thông " + interopCode)
-                .result("SUCCESS")
-                .build());
-
-        return ApproveUnitResult.builder()
-                .interopCode(interopCode)
-                .tempPassword(tempPassword)
-                .build();
     }
 
     // ── UC2.5 — Từ chối ─────────────────────────────────────────────────────
     @Transactional
     public void reject(Long id, RejectUnitRequest req) {
         Long actorId = SecurityUtils.getCurrentAccountId();
-        InteropUnitEntity unit = findOrThrow(id);
 
-        if (unit.getStatus() != InteropUnitStatus.PENDING) {
-            throw new AppException(ErrorCode.UNIT_NOT_PENDING);
+        try {
+            InteropUnitEntity unit = findOrThrow(id);
+
+            if (unit.getStatus() != InteropUnitStatus.PENDING) {
+                throw new AppException(ErrorCode.UNIT_NOT_PENDING);
+            }
+
+            unit.setStatus(InteropUnitStatus.REJECTED);
+            unit.setRejectedReason(req.getReason());
+            unit.setApprovedBy(actorId);       // người thực hiện hành động
+            unit.setApprovedAt(LocalDateTime.now());
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(actorId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.REJECT.name())
+                    .targetType(AuditTargetType.INTEROP_UNIT.name())
+                    .targetId(String.valueOf(id))
+                    .description("Từ chối đơn vị '" + unit.getName()
+                            + "', lý do: " + req.getReason())
+                    .result("SUCCESS")
+                    .build());
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(SecurityUtils.getCurrentAccountId())
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.REJECT.name())
+                    .targetType(AuditTargetType.INTEROP_UNIT.name())
+                    .targetId(String.valueOf(id))
+                    .description("Từ chối đơn vị thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        unit.setStatus(InteropUnitStatus.REJECTED);
-        unit.setRejectedReason(req.getReason());
-        unit.setApprovedBy(actorId);       // người thực hiện hành động
-        unit.setApprovedAt(LocalDateTime.now());
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(actorId)
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.REJECT.name())
-                .targetType(AuditTargetType.INTEROP_UNIT.name())
-                .targetId(String.valueOf(id))
-                .description("Từ chối đơn vị '" + unit.getName()
-                        + "', lý do: " + req.getReason())
-                .result("SUCCESS")
-                .build());
     }
 
     // ── UC2.6 — Khoá / mở khoá ──────────────────────────────────────────────
@@ -324,7 +358,6 @@ public class InteropUnitService {
         }
 
         boolean locking = unit.getStatus() == InteropUnitStatus.ACTIVE;
-        unit.setStatus(locking ? InteropUnitStatus.LOCKED : InteropUnitStatus.ACTIVE);
 
         auditLogService.log(AuditLogDocument.builder()
                 .actorId(SecurityUtils.getCurrentAccountId())

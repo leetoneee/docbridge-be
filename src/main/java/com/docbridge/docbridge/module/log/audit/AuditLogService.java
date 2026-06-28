@@ -45,6 +45,9 @@ public class AuditLogService {
     // UC7.1 / UC7.2 — Danh sách + filter, search_after pagination
     // ----------------------------------------------------------------
     public Map<String, Object> search(AuditLogFilterRequest filter) {
+        log.info("Filter received: dateFrom={}, dateTo={}, size={}",
+                filter.getDateFrom(), filter.getDateTo(), filter.getSize());
+
         try {
             List<Query> musts = new ArrayList<>();
 
@@ -67,10 +70,11 @@ public class AuditLogService {
                                 .map(co.elastic.clients.elasticsearch._types.FieldValue::of)
                                 .toList())))));
             }
-            if (filter.getActorEmail() != null) {
-                musts.add(Query.of(q -> q.term(t -> t
+            if (filter.getActorEmail() != null && !filter.getActorEmail().isBlank()) {
+                musts.add(Query.of(q -> q.wildcard(w -> w
                         .field("actor_email")
-                        .value(filter.getActorEmail()))));
+                        .value("*" + filter.getActorEmail().toLowerCase() + "*")
+                )));
             }
             if (filter.getTargetType() != null) {
                 musts.add(Query.of(q -> q.term(t -> t
@@ -123,7 +127,7 @@ public class AuditLogService {
                 List<co.elastic.clients.elasticsearch._types.FieldValue> sortVals =
                         hits.getLast().sort();
                 if (!sortVals.isEmpty()) {
-                    nextCursor = sortVals.getFirst().toString();
+                    nextCursor = sortVals.getFirst()._get().toString();
                 }
             }
 

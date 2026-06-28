@@ -48,7 +48,7 @@ public class SecurityConfig {
     // Các path không cần xác thực
     // ----------------------------------------------------------------
     private static final String[] PUBLIC_PATHS = {
-            "/api/auth/login",
+            "/api/v1/auth/login",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",

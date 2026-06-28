@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/stats")
+@RequestMapping("/api/v1/stats")
 @RequiredArgsConstructor
 @Tag(name = "Statistics", description = "Thống kê giao dịch")
 public class TransactionStatsController {

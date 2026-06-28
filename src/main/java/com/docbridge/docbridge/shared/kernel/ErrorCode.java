@@ -123,4 +123,8 @@ public enum ErrorCode {
         this.code = code;
         this.defaultMessage = defaultMessage;
     }
+
+    public String toFailureReason() {
+        return this.code + ": " + this.defaultMessage;
+    }
 }

@@ -46,57 +46,71 @@ public class TransactionService {
         Long accountId = SecurityUtils.getCurrentAccountId();
         Long senderUnitId = SecurityUtils.getCurrentUnitId(); // throws nếu không phải UNIT
 
-        // 1. Validate sender unit còn active (system + unit)
-        UnitTransactionSummary sender = unitRepository.findSummaryById(senderUnitId)
-                .orElseThrow(() -> new AppException(ErrorCode.UNIT_NOT_FOUND));
-        validateUnitCanTransact(sender);
+        try {
+            // 1. Validate sender unit còn active (system + unit)
+            UnitTransactionSummary sender = unitRepository.findSummaryById(senderUnitId)
+                    .orElseThrow(() -> new AppException(ErrorCode.UNIT_NOT_FOUND));
+            validateUnitCanTransact(sender);
 
-        // 2. Tìm và validate receiver
-        UnitTransactionSummary receiver = unitRepository
-                .findSummaryByInteropCode(request.getReceiverInteropCode())
-                .orElseThrow(() -> new AppException(ErrorCode.UNIT_NOT_FOUND));
+            // 2. Tìm và validate receiver
+            UnitTransactionSummary receiver = unitRepository
+                    .findSummaryByInteropCode(request.getReceiverInteropCode())
+                    .orElseThrow(() -> new AppException(ErrorCode.UNIT_NOT_FOUND));
 
-        if (receiver.getId().equals(senderUnitId)) {
-            throw new AppException(ErrorCode.CANNOT_SEND_TO_SELF);
+            if (receiver.getId().equals(senderUnitId)) {
+                throw new AppException(ErrorCode.CANNOT_SEND_TO_SELF);
+            }
+
+            validateReceiverCanReceive(receiver);
+
+            // 3. Sinh mã giao dịch
+            String txCode = codeGenerator.next();
+
+            // 4. Lưu transaction
+            TransactionEntity tx = TransactionEntity.builder()
+                    .transactionCode(txCode)
+                    .senderUnitId(senderUnitId)
+                    .receiverUnitId(receiver.getId())
+                    .documentCode(request.getDocumentCode())
+                    .title(request.getTitle())
+                    .fileReference(request.getFileReference())
+                    .note(request.getNote())
+                    .status(TransactionStatus.SENT)
+                    .createdBy(accountId)
+                    .build();
+            tx = transactionRepository.save(tx);
+
+            // 5. Ghi history (initial)
+            saveHistory(tx.getId(), null, TransactionStatus.SENT, null, accountId);
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.SEND.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .targetId(String.valueOf(tx.getId()))
+                    .description("Gửi văn bản '" + tx.getTitle()
+                            + "' [" + tx.getTransactionCode() + "]"
+                            + " từ " + sender.getInteropCode()
+                            + " đến " + receiver.getInteropCode())
+                    .result("SUCCESS")
+                    .build());
+
+            return toResponse(tx, sender, receiver, null);
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.SEND.name())
+                    .description("Gửi văn bản thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        validateReceiverCanReceive(receiver);
-
-        // 3. Sinh mã giao dịch
-        String txCode = codeGenerator.next();
-
-        // 4. Lưu transaction
-        TransactionEntity tx = TransactionEntity.builder()
-                .transactionCode(txCode)
-                .senderUnitId(senderUnitId)
-                .receiverUnitId(receiver.getId())
-                .documentCode(request.getDocumentCode())
-                .title(request.getTitle())
-                .fileReference(request.getFileReference())
-                .note(request.getNote())
-                .status(TransactionStatus.SENT)
-                .createdBy(accountId)
-                .build();
-        tx = transactionRepository.save(tx);
-
-        // 5. Ghi history (initial)
-        saveHistory(tx.getId(), null, TransactionStatus.SENT, null, accountId);
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(accountId)
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.SEND.name())
-                .targetType(AuditTargetType.TRANSACTION.name())
-                .targetId(String.valueOf(tx.getId()))
-                .description("Gửi văn bản '" + tx.getTitle()
-                        + "' [" + tx.getTransactionCode() + "]"
-                        + " từ " + sender.getInteropCode()
-                        + " đến " + receiver.getInteropCode())
-                .result("SUCCESS")
-                .build());
-
-        return toResponse(tx, sender, receiver, null);
     }
 
     // ================================================================
@@ -137,34 +151,49 @@ public class TransactionService {
         Long accountId = SecurityUtils.getCurrentAccountId();
         Long unitId = SecurityUtils.getCurrentUnitId();
 
-        TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, true);
+        try {
+            TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, true);
 
-        // Chỉ được cancel khi SENT
-        if (tx.getStatus() != TransactionStatus.SENT) {
-            throw new AppException(ErrorCode.TRANSACTION_NOT_EDITABLE);
+            // Chỉ được cancel khi SENT
+            if (tx.getStatus() != TransactionStatus.SENT) {
+                throw new AppException(ErrorCode.TRANSACTION_NOT_EDITABLE);
+            }
+
+            // Optimistic lock check
+            checkVersion(tx, request.getVersion());
+
+            TransactionStatus prev = tx.getStatus();
+            tx.setStatus(TransactionStatus.CANCELLED);
+            transactionRepository.save(tx);
+
+            saveHistory(tx.getId(), prev, TransactionStatus.CANCELLED, request.getReason(), accountId);
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.CANCEL.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .targetId(String.valueOf(tx.getId()))
+                    .description("Thu hồi giao dịch '" + tx.getTitle()
+                            + "' [" + transactionCode + "]"
+                            + ", lý do: " + request.getReason())
+                    .result("SUCCESS")
+                    .build());
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.CANCEL.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .description("Thu hồi giao dịch " + transactionCode + " thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        // Optimistic lock check
-        checkVersion(tx, request.getVersion());
-
-        TransactionStatus prev = tx.getStatus();
-        tx.setStatus(TransactionStatus.CANCELLED);
-        transactionRepository.save(tx);
-
-        saveHistory(tx.getId(), prev, TransactionStatus.CANCELLED, request.getReason(), accountId);
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(accountId)
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.CANCEL.name())
-                .targetType(AuditTargetType.TRANSACTION.name())
-                .targetId(String.valueOf(tx.getId()))
-                .description("Thu hồi giao dịch '" + tx.getTitle()
-                        + "' [" + transactionCode + "]"
-                        + ", lý do: " + request.getReason())
-                .result("SUCCESS")
-                .build());
     }
 
     // ================================================================
@@ -205,30 +234,45 @@ public class TransactionService {
         Long accountId = SecurityUtils.getCurrentAccountId();
         Long unitId = SecurityUtils.getCurrentUnitId();
 
-        TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, false);
+        try {
+            TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, false);
 
-        if (tx.getStatus() != TransactionStatus.SENT) {
-            throw new AppException(ErrorCode.TRANSACTION_NOT_EDITABLE);
+            if (tx.getStatus() != TransactionStatus.SENT) {
+                throw new AppException(ErrorCode.TRANSACTION_NOT_EDITABLE);
+            }
+
+            checkVersion(tx, request.getVersion());
+
+            TransactionStatus prev = tx.getStatus();
+            tx.setStatus(TransactionStatus.ACCEPTED);
+            transactionRepository.save(tx);
+
+            saveHistory(tx.getId(), prev, TransactionStatus.ACCEPTED, null, accountId);
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.ACCEPT.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .targetId(String.valueOf(tx.getId()))
+                    .description("Chấp nhận văn bản '" + tx.getTitle() + "' [" + transactionCode + "]")
+                    .result("SUCCESS")
+                    .build());
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.ACCEPT.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .description("Chấp nhận giao dịch " + transactionCode + " thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        checkVersion(tx, request.getVersion());
-
-        TransactionStatus prev = tx.getStatus();
-        tx.setStatus(TransactionStatus.ACCEPTED);
-        transactionRepository.save(tx);
-
-        saveHistory(tx.getId(), prev, TransactionStatus.ACCEPTED, null, accountId);
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(accountId)
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.ACCEPT.name())
-                .targetType(AuditTargetType.TRANSACTION.name())
-                .targetId(String.valueOf(tx.getId()))
-                .description("Chấp nhận văn bản '" + tx.getTitle() + "' [" + transactionCode + "]")
-                .result("SUCCESS")
-                .build());
     }
 
     // ================================================================
@@ -239,32 +283,47 @@ public class TransactionService {
         Long accountId = SecurityUtils.getCurrentAccountId();
         Long unitId = SecurityUtils.getCurrentUnitId();
 
-        TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, false);
+        try {
+            TransactionEntity tx = findAndCheckOwner(transactionCode, unitId, false);
 
-        if (tx.getStatus() != TransactionStatus.SENT) {
-            throw new AppException(ErrorCode.TRANSACTION_NOT_EDITABLE);
+            if (tx.getStatus() != TransactionStatus.SENT) {
+                throw new AppException(ErrorCode.TRANSACTION_NOT_EDITABLE);
+            }
+
+            checkVersion(tx, request.getVersion());
+
+            TransactionStatus prev = tx.getStatus();
+            tx.setStatus(TransactionStatus.REJECTED);
+            transactionRepository.save(tx);
+
+            saveHistory(tx.getId(), prev, TransactionStatus.REJECTED, request.getReason(), accountId);
+
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.REJECT_TRANSACTION.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .targetId(String.valueOf(tx.getId()))
+                    .description("Từ chối văn bản '" + tx.getTitle()
+                            + "' [" + transactionCode + "]"
+                            + ", lý do: " + request.getReason())
+                    .result("SUCCESS")
+                    .build());
+
+        } catch (AppException ex) {
+            auditLogService.log(AuditLogDocument.builder()
+                    .actorId(accountId)
+                    .actorEmail(SecurityUtils.getCurrentEmail())
+                    .actorRole(SecurityUtils.getCurrentRole())
+                    .action(AuditAction.REJECT_TRANSACTION.name())
+                    .targetType(AuditTargetType.TRANSACTION.name())
+                    .description("Từ chối giao dịch " + transactionCode + " thất bại")
+                    .result("FAILURE")
+                    .failureReason(ex.getErrorCode().toFailureReason())
+                    .build());
+            throw ex;
         }
-
-        checkVersion(tx, request.getVersion());
-
-        TransactionStatus prev = tx.getStatus();
-        tx.setStatus(TransactionStatus.REJECTED);
-        transactionRepository.save(tx);
-
-        saveHistory(tx.getId(), prev, TransactionStatus.REJECTED, request.getReason(), accountId);
-
-        auditLogService.log(AuditLogDocument.builder()
-                .actorId(accountId)
-                .actorEmail(SecurityUtils.getCurrentEmail())
-                .actorRole(SecurityUtils.getCurrentRole())
-                .action(AuditAction.REJECT_TRANSACTION.name())
-                .targetType(AuditTargetType.TRANSACTION.name())
-                .targetId(String.valueOf(tx.getId()))
-                .description("Từ chối văn bản '" + tx.getTitle()
-                        + "' [" + transactionCode + "]"
-                        + ", lý do: " + request.getReason())
-                .result("SUCCESS")
-                .build());
     }
 
     // ================================================================

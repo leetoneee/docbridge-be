@@ -55,7 +55,7 @@ public class AuthService {
                     .description("Đăng nhập thất bại")
                     .ipAddress(ip)
                     .result("FAILURE")
-                    .failureReason(ex.getErrorCode().name())
+                    .failureReason(ex.getErrorCode().toFailureReason())
                     .build());
             throw ex;   // re-throw để GlobalExceptionHandler xử lý
         }

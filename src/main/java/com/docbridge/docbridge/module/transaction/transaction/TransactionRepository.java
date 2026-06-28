@@ -1,6 +1,6 @@
 package com.docbridge.docbridge.module.transaction.transaction;
 
-import com.docbridge.docbridge.module.transaction.transaction.dto.TransactionEntity;
+import com.docbridge.docbridge.module.transaction.transaction.TransactionEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

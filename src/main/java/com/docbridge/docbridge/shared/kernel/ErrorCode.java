@@ -123,4 +123,4 @@ public enum ErrorCode {
         this.code = code;
         this.defaultMessage = defaultMessage;
     }
-    }
+}

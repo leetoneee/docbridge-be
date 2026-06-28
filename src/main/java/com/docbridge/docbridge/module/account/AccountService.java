@@ -1,6 +1,10 @@
 package com.docbridge.docbridge.module.account;
 
 import com.docbridge.docbridge.module.account.dto.*;
+import com.docbridge.docbridge.module.log.audit.AuditAction;
+import com.docbridge.docbridge.module.log.audit.AuditLogDocument;
+import com.docbridge.docbridge.module.log.audit.AuditLogService;
+import com.docbridge.docbridge.module.log.audit.AuditTargetType;
 import com.docbridge.docbridge.shared.kernel.AppException;
 import com.docbridge.docbridge.shared.kernel.ErrorCode;
 import com.docbridge.docbridge.shared.security.SecurityUtils;
@@ -25,6 +29,7 @@ public class AccountService {
     private final InteropUnitSummaryRepository interopUnitSummaryRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     // -------------------------------------------------------------------------
     // UC3.1 — Tạo tài khoản Operator
@@ -55,6 +60,17 @@ public class AccountService {
         // Gửi email async — lỗi email không rollback transaction
         emailService.sendTempPassword(account.getEmail(), tempPassword);
 
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.CREATE.name())
+                .targetType(AuditTargetType.ACCOUNT.name())
+                .targetId(String.valueOf(account.getId()))
+                .description("Tạo tài khoản " + account.getEmail() + ", role OPERATOR")
+                .result("SUCCESS")
+                .build());
+
         return new CreateAccountResult(account.getId(), account.getEmail(), tempPassword);
     }
 
@@ -72,6 +88,18 @@ public class AccountService {
         }
 
         account.setStatus(AccountStatus.LOCKED);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.LOCK.name())
+                .targetType(AuditTargetType.ACCOUNT.name())
+                .targetId(String.valueOf(id))
+                .description("Khoá tài khoản " + account.getEmail())
+                .result("SUCCESS")
+                .build());
+
         return toResponse(account);
     }
 
@@ -89,6 +117,18 @@ public class AccountService {
         }
 
         account.setStatus(AccountStatus.ACTIVE);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.UNLOCK.name())
+                .targetType(AuditTargetType.ACCOUNT.name())
+                .targetId(String.valueOf(id))
+                .description("Mở khoá tài khoản " + account.getEmail())
+                .result("SUCCESS")
+                .build());
+
         return toResponse(account);
     }
 
@@ -106,6 +146,17 @@ public class AccountService {
         account.setTempPassword(true);
 
         emailService.sendTempPassword(account.getEmail(), tempPassword);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.RESET_PASSWORD.name())
+                .targetType(AuditTargetType.ACCOUNT.name())
+                .targetId(String.valueOf(id))
+                .description("Reset mật khẩu tài khoản " + account.getEmail())
+                .result("SUCCESS")
+                .build());
 
         return new CreateAccountResult(account.getId(), account.getEmail(), tempPassword);
     }

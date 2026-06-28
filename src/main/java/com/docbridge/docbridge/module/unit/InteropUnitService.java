@@ -4,6 +4,10 @@ import com.docbridge.docbridge.module.account.AccountEntity;
 import com.docbridge.docbridge.module.account.AccountRepository;
 import com.docbridge.docbridge.module.account.AccountStatus;
 import com.docbridge.docbridge.module.account.RoleSummaryRepository;
+import com.docbridge.docbridge.module.log.audit.AuditAction;
+import com.docbridge.docbridge.module.log.audit.AuditLogDocument;
+import com.docbridge.docbridge.module.log.audit.AuditLogService;
+import com.docbridge.docbridge.module.log.audit.AuditTargetType;
 import com.docbridge.docbridge.module.permission.role.RoleRepository;
 import com.docbridge.docbridge.module.system.InteropSystemEntity;
 import com.docbridge.docbridge.module.system.InteropSystemRepository;
@@ -35,6 +39,7 @@ public class InteropUnitService {
     private final RoleSummaryRepository roleSummaryRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     // ── UC2.1 — Tạo đơn vị liên thông ──────────────────────────────────────
     @Transactional
@@ -67,6 +72,18 @@ public class InteropUnitService {
                 .build();
 
         unitRepository.save(unit);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(actorId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.CREATE.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(unit.getId()))
+                .description("Tạo đơn vị liên thông '" + unit.getName() + "'")
+                .result("SUCCESS")
+                .build());
+
         return UnitResponse.from(unit);
     }
 
@@ -151,6 +168,17 @@ public class InteropUnitService {
         unit.setRepresentativePhone(req.getRepresentativePhone());
         // email, system_id, interop_code: KHÔNG cập nhật
 
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.UPDATE.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(id))
+                .description("Cập nhật thông tin đơn vị '" + unit.getName() + "'")
+                .result("SUCCESS")
+                .build());
+
         return UnitResponse.from(unit);
     }
 
@@ -184,6 +212,18 @@ public class InteropUnitService {
         account.setPassword(passwordEncoder.encode(tempPassword));
 
         emailService.sendTempPassword(newEmail, tempPassword);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.UPDATE.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(id))
+                .description("Cập nhật email đơn vị '" + unit.getName()
+                        + "' thành " + req.getEmail())
+                .result("SUCCESS")
+                .build());
 
         return UnitResponse.from(unit);
     }
@@ -227,6 +267,18 @@ public class InteropUnitService {
         unit.setApprovedBy(actorId);
         unit.setApprovedAt(LocalDateTime.now());
 
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(actorId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.APPROVE.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(id))
+                .description("Phê duyệt đơn vị '" + unit.getName()
+                        + "', mã liên thông " + interopCode)
+                .result("SUCCESS")
+                .build());
+
         return ApproveUnitResult.builder()
                 .interopCode(interopCode)
                 .tempPassword(tempPassword)
@@ -247,6 +299,18 @@ public class InteropUnitService {
         unit.setRejectedReason(req.getReason());
         unit.setApprovedBy(actorId);       // người thực hiện hành động
         unit.setApprovedAt(LocalDateTime.now());
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(actorId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.REJECT.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(id))
+                .description("Từ chối đơn vị '" + unit.getName()
+                        + "', lý do: " + req.getReason())
+                .result("SUCCESS")
+                .build());
     }
 
     // ── UC2.6 — Khoá / mở khoá ──────────────────────────────────────────────
@@ -258,6 +322,21 @@ public class InteropUnitService {
                 || unit.getStatus() == InteropUnitStatus.REJECTED) {
             throw new AppException(ErrorCode.UNIT_CANNOT_LOCK);
         }
+
+        boolean locking = unit.getStatus() == InteropUnitStatus.ACTIVE;
+        unit.setStatus(locking ? InteropUnitStatus.LOCKED : InteropUnitStatus.ACTIVE);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(locking ? AuditAction.LOCK.name() : AuditAction.UNLOCK.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(id))
+                .description((locking ? "Khoá" : "Mở khoá")
+                        + " đơn vị '" + unit.getName() + "'")
+                .result("SUCCESS")
+                .build());
 
         // ACTIVE → LOCKED, LOCKED → ACTIVE
         unit.setStatus(unit.getStatus() == InteropUnitStatus.ACTIVE
@@ -277,6 +356,19 @@ public class InteropUnitService {
         // Nếu đã có account Unit → xoá account trước
         accountRepository.findByEmail(unit.getEmail())
                 .ifPresent(accountRepository::delete);
+
+        String unitName = unit.getName();
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.DELETE.name())
+                .targetType(AuditTargetType.INTEROP_UNIT.name())
+                .targetId(String.valueOf(id))
+                .description("Xoá đơn vị liên thông '" + unitName + "'")
+                .result("SUCCESS")
+                .build());
 
         unitRepository.delete(unit);
     }

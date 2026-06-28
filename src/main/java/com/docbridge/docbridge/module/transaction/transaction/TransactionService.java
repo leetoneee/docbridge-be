@@ -1,9 +1,12 @@
 package com.docbridge.docbridge.module.transaction.transaction;
 
+import com.docbridge.docbridge.module.log.audit.AuditAction;
+import com.docbridge.docbridge.module.log.audit.AuditLogDocument;
+import com.docbridge.docbridge.module.log.audit.AuditLogService;
+import com.docbridge.docbridge.module.log.audit.AuditTargetType;
 import com.docbridge.docbridge.module.transaction.account.AccountEmailRepository;
 import com.docbridge.docbridge.module.transaction.account.AccountEmailView;
 import com.docbridge.docbridge.module.transaction.transaction.dto.*;
-import com.docbridge.docbridge.module.transaction.transaction.dto.TransactionEntity;
 import com.docbridge.docbridge.module.transaction.transaction_history.TransactionHistoryEntity;
 import com.docbridge.docbridge.module.transaction.transaction_history.TransactionHistoryRepository;
 import com.docbridge.docbridge.module.transaction.transaction_history.dto.ActorBriefResponse;
@@ -33,6 +36,7 @@ public class TransactionService {
     private final SystemTransactionRepository systemRepository;
     private final TransactionCodeGenerator codeGenerator;
     private final AccountEmailRepository accountEmailRepository;
+    private final AuditLogService auditLogService;
 
     // ================================================================
     // UC5.1 — Tạo yêu cầu gửi văn bản
@@ -77,6 +81,20 @@ public class TransactionService {
 
         // 5. Ghi history (initial)
         saveHistory(tx.getId(), null, TransactionStatus.SENT, null, accountId);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(accountId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.SEND.name())
+                .targetType(AuditTargetType.TRANSACTION.name())
+                .targetId(String.valueOf(tx.getId()))
+                .description("Gửi văn bản '" + tx.getTitle()
+                        + "' [" + tx.getTransactionCode() + "]"
+                        + " từ " + sender.getInteropCode()
+                        + " đến " + receiver.getInteropCode())
+                .result("SUCCESS")
+                .build());
 
         return toResponse(tx, sender, receiver, null);
     }
@@ -134,6 +152,19 @@ public class TransactionService {
         transactionRepository.save(tx);
 
         saveHistory(tx.getId(), prev, TransactionStatus.CANCELLED, request.getReason(), accountId);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(accountId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.CANCEL.name())
+                .targetType(AuditTargetType.TRANSACTION.name())
+                .targetId(String.valueOf(tx.getId()))
+                .description("Thu hồi giao dịch '" + tx.getTitle()
+                        + "' [" + transactionCode + "]"
+                        + ", lý do: " + request.getReason())
+                .result("SUCCESS")
+                .build());
     }
 
     // ================================================================
@@ -187,6 +218,17 @@ public class TransactionService {
         transactionRepository.save(tx);
 
         saveHistory(tx.getId(), prev, TransactionStatus.ACCEPTED, null, accountId);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(accountId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.ACCEPT.name())
+                .targetType(AuditTargetType.TRANSACTION.name())
+                .targetId(String.valueOf(tx.getId()))
+                .description("Chấp nhận văn bản '" + tx.getTitle() + "' [" + transactionCode + "]")
+                .result("SUCCESS")
+                .build());
     }
 
     // ================================================================
@@ -210,6 +252,19 @@ public class TransactionService {
         transactionRepository.save(tx);
 
         saveHistory(tx.getId(), prev, TransactionStatus.REJECTED, request.getReason(), accountId);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(accountId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.REJECT_TRANSACTION.name())
+                .targetType(AuditTargetType.TRANSACTION.name())
+                .targetId(String.valueOf(tx.getId()))
+                .description("Từ chối văn bản '" + tx.getTitle()
+                        + "' [" + transactionCode + "]"
+                        + ", lý do: " + request.getReason())
+                .result("SUCCESS")
+                .build());
     }
 
     // ================================================================

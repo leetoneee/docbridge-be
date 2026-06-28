@@ -1,5 +1,9 @@
 package com.docbridge.docbridge.module.permission.permission;
 
+import com.docbridge.docbridge.module.log.audit.AuditAction;
+import com.docbridge.docbridge.module.log.audit.AuditLogDocument;
+import com.docbridge.docbridge.module.log.audit.AuditLogService;
+import com.docbridge.docbridge.module.log.audit.AuditTargetType;
 import com.docbridge.docbridge.module.permission.permission.dto.PermissionResponse;
 import com.docbridge.docbridge.module.permission.role.RoleEntity;
 import com.docbridge.docbridge.module.permission.role.RoleRepository;
@@ -9,6 +13,7 @@ import com.docbridge.docbridge.module.permission.rolepermission.RolePermissionEn
 import com.docbridge.docbridge.module.permission.rolepermission.RolePermissionRepository;
 import com.docbridge.docbridge.shared.kernel.AppException;
 import com.docbridge.docbridge.shared.kernel.ErrorCode;
+import com.docbridge.docbridge.shared.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +31,7 @@ public class PermissionService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
-
+    private final AuditLogService auditLogService;
     // -------------------------------------------------------------------------
     // UC8.1 — Xem danh sách role
     // -------------------------------------------------------------------------
@@ -109,6 +114,18 @@ public class PermissionService {
 
         rolePermissionRepository.save(rolePermission);
 
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.GRANT_PERMISSION.name())
+                .targetType(AuditTargetType.ROLE.name())
+                .targetId(String.valueOf(roleId))
+                .description("Gán quyền '" + permission.getCode()
+                        + "' cho role " + role.getCode())
+                .result("SUCCESS")
+                .build());
+
         // Reload để trả về state mới nhất
         RoleEntity updated = roleRepository.findByIdWithPermissions(roleId)
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
@@ -138,6 +155,18 @@ public class PermissionService {
             throw new AppException(ErrorCode.PERMISSION_NOT_ASSIGNED);
         }
 
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.REVOKE_PERMISSION.name())
+                .targetType(AuditTargetType.ROLE.name())
+                .targetId(String.valueOf(roleId))
+                .description("Bỏ quyền '" + permission.getCode()
+                        + "' khỏi role " + role.getCode())
+                .result("SUCCESS")
+                .build());
+        
         RoleEntity updated = roleRepository.findByIdWithPermissions(roleId)
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 

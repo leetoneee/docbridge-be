@@ -1,4 +1,4 @@
-package com.docbridge.docbridge.module.transaction.transaction.dto;
+package com.docbridge.docbridge.module.transaction.transaction;
 
 import com.docbridge.docbridge.module.transaction.transaction.TransactionStatus;
 import jakarta.persistence.*;

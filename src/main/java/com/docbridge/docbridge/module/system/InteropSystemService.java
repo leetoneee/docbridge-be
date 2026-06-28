@@ -1,5 +1,9 @@
 package com.docbridge.docbridge.module.system;
 
+import com.docbridge.docbridge.module.log.audit.AuditAction;
+import com.docbridge.docbridge.module.log.audit.AuditLogDocument;
+import com.docbridge.docbridge.module.log.audit.AuditLogService;
+import com.docbridge.docbridge.module.log.audit.AuditTargetType;
 import com.docbridge.docbridge.module.system.dto.*;
 import com.docbridge.docbridge.shared.kernel.ApiResponse;
 import com.docbridge.docbridge.shared.kernel.AppException;
@@ -20,6 +24,7 @@ import java.util.List;
 public class InteropSystemService {
 
     private final InteropSystemRepository systemRepository;
+    private final AuditLogService auditLogService;
 
     // ----------------------------------------------------------------
     // UC1.1 — Thêm mới hệ thống liên thông
@@ -38,7 +43,20 @@ public class InteropSystemService {
                 .createdBy(actorId)
                 .build();
 
-        return SystemResponse.from(systemRepository.save(entity));
+        entity = systemRepository.save(entity);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(actorId)
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.CREATE.name())
+                .targetType(AuditTargetType.INTEROP_SYSTEM.name())
+                .targetId(String.valueOf(entity.getId()))
+                .description("Tạo hệ thống liên thông '" + entity.getName() + "'")
+                .result("SUCCESS")
+                .build());
+
+        return SystemResponse.from(entity);
     }
 
     // ----------------------------------------------------------------
@@ -76,7 +94,20 @@ public class InteropSystemService {
         entity.setName(request.getName());
         entity.setDescription(request.getDescription());
 
-        return SystemResponse.from(systemRepository.save(entity));
+//        entity = systemRepository.save(entity);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.UPDATE.name())
+                .targetType(AuditTargetType.INTEROP_SYSTEM.name())
+                .targetId(String.valueOf(id))
+                .description("Cập nhật thông tin hệ thống '" + entity.getName() + "'")
+                .result("SUCCESS")
+                .build());
+
+        return SystemResponse.from(entity);
     }
 
     // ----------------------------------------------------------------
@@ -87,13 +118,27 @@ public class InteropSystemService {
     public SystemResponse toggleLock(Long id) {
         InteropSystemEntity entity = getOrThrow(id);
 
-        entity.setStatus(
-                entity.getStatus() == InteropSystemStatus.ACTIVE
-                        ? InteropSystemStatus.LOCKED
-                        : InteropSystemStatus.ACTIVE
-        );
+        boolean locking = entity.getStatus() == InteropSystemStatus.ACTIVE;
 
-        return SystemResponse.from(systemRepository.save(entity));
+        entity.setStatus(
+                locking
+                        ? InteropSystemStatus.LOCKED :
+                        InteropSystemStatus.ACTIVE);
+        SystemResponse response = SystemResponse.from(systemRepository.save(entity));
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(locking ? AuditAction.LOCK.name() : AuditAction.UNLOCK.name())
+                .targetType(AuditTargetType.INTEROP_SYSTEM.name())
+                .targetId(String.valueOf(id))
+                .description((locking ? "Khoá" : "Mở khoá")
+                        + " hệ thống '" + entity.getName() + "'")
+                .result("SUCCESS")
+                .build());
+
+        return response;
     }
 
     // ----------------------------------------------------------------
@@ -102,13 +147,25 @@ public class InteropSystemService {
     // ----------------------------------------------------------------
     @Transactional
     public void delete(Long id) {
-        getOrThrow(id); // xác nhận tồn tại trước
+        InteropSystemEntity entity = getOrThrow(id);
+        String systemName = entity.getName();
 
         if (systemRepository.existsUnitBySystemId(id)) {
             throw new AppException(ErrorCode.SYSTEM_HAS_UNITS);
         }
 
         systemRepository.deleteById(id);
+
+        auditLogService.log(AuditLogDocument.builder()
+                .actorId(SecurityUtils.getCurrentAccountId())
+                .actorEmail(SecurityUtils.getCurrentEmail())
+                .actorRole(SecurityUtils.getCurrentRole())
+                .action(AuditAction.DELETE.name())
+                .targetType(AuditTargetType.INTEROP_SYSTEM.name())
+                .targetId(String.valueOf(id))
+                .description("Xoá hệ thống liên thông '" + systemName + "'")
+                .result("SUCCESS")
+                .build());
     }
 
     @Transactional(readOnly = true)

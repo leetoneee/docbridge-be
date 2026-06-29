@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -13,6 +14,7 @@ public class TransactionStatsResponse {
     private List<SystemStat> bySystem;
     private List<UnitStat> byUnit;
     private List<TimelineStat> timeline;
+    private List<RecentTransaction> recentTransactions;
 
     @Getter
     @AllArgsConstructor
@@ -22,6 +24,8 @@ public class TransactionStatsResponse {
         private long accepted;
         private long rejected;
         private long cancelled;
+        private long totalActiveUnits;
+        private long pendingUnits;
     }
 
     @Getter
@@ -47,5 +51,15 @@ public class TransactionStatsResponse {
     public static class TimelineStat {
         private String period;
         private long count;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class RecentTransaction {
+        private String        transactionCode;
+        private String        fromUnit;   // interop_code của sender
+        private String        toUnit;     // interop_code của receiver
+        private String        status;
+        private LocalDateTime createdAt;
     }
 }

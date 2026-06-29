@@ -22,18 +22,19 @@ public class EmailService {
     public void sendTempPassword(String toEmail, String tempPassword) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("docbridge2026@gmail.com");
             message.setTo(toEmail);
             message.setSubject("[DocBridge] Thông tin đăng nhập");
             message.setText("""
                     Chào bạn,
-
+                    
                     Tài khoản DocBridge của bạn đã được tạo / đặt lại mật khẩu.
-
+                    
                     Email đăng nhập : %s
                     Mật khẩu tạm thời: %s
-
+                    
                     Vui lòng đăng nhập và đổi mật khẩu ngay lần đầu tiên.
-
+                    
                     Trân trọng,
                     Hệ thống DocBridge
                     """.formatted(toEmail, tempPassword));
@@ -42,7 +43,7 @@ public class EmailService {
             log.info("Sent temp-password email to {}", toEmail);
         } catch (Exception e) {
             // Không throw — lỗi email không nên rollback transaction tạo tài khoản
-            log.error("Failed to send temp-password email to {}: {}", toEmail, e.getMessage());
+            log.error("Failed to send temp-password email to {}", toEmail, e);
         }
     }
 }

@@ -33,7 +33,7 @@ public class MustChangePasswordFilter extends OncePerRequestFilter {
 
     // Các path được phép gọi kể cả khi chưa đổi mật khẩu
     private static final String[] ALLOWED_PATHS = {
-            "/api/auth/",
+            "/api/v1/auth/",
             "/swagger-ui",
             "/v3/api-docs"
     };

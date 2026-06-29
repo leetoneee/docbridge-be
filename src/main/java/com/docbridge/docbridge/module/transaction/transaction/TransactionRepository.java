@@ -146,4 +146,49 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("systemId") Long systemId);
+
+    // ----------------------------------------------------------------
+    // Dashboard: đếm số đơn vị ACTIVE (có thể filter theo systemId)
+    // ----------------------------------------------------------------
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM interop_unit
+            WHERE status = 'ACTIVE'
+              AND (:systemId IS NULL OR system_id = :systemId)
+            """, nativeQuery = true)
+    long countActiveUnits(@Param("systemId") Long systemId);
+
+    // ----------------------------------------------------------------
+    // Dashboard: đếm số đơn vị PENDING chờ duyệt (toàn hệ thống)
+    // ----------------------------------------------------------------
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM interop_unit
+            WHERE status = 'PENDING'
+            """, nativeQuery = true)
+    long countPendingUnits();
+
+    // ----------------------------------------------------------------
+    // Dashboard: 10 giao dịch gần nhất trong khoảng ngày
+    // ----------------------------------------------------------------
+    @Query(value = """
+            SELECT t.transaction_code,
+                   su.interop_code AS from_unit,
+                   ru.interop_code AS to_unit,
+                   t.status,
+                   t.created_at
+            FROM `transaction` t
+            JOIN interop_unit su ON su.id = t.sender_unit_id
+            JOIN interop_unit ru ON ru.id = t.receiver_unit_id
+            WHERE (:from IS NULL OR DATE(t.created_at) >= :from)
+              AND (:to   IS NULL OR DATE(t.created_at) <= :to)
+              AND (:systemId IS NULL OR su.system_id = :systemId)
+            ORDER BY t.created_at DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> findRecentTransactions(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("systemId") Long systemId,
+            @Param("limit") int limit);
 }

@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "id":             { "type": "keyword" },
+    "actor_id":       { "type": "long" },
+    "actor_email":    { "type": "keyword" },
+    "actor_role":     { "type": "keyword" },
+    "action":         { "type": "keyword" },
+    "target_type":    { "type": "keyword" },
+    "target_id":      { "type": "keyword" },
+    "description":    { "type": "text" },
+    "ip_address":     { "type": "keyword" },
+    "result":         { "type": "keyword" },
+    "failure_reason": { "type": "text" },
+    "created_at":     { "type": "date" }
+  }
+}

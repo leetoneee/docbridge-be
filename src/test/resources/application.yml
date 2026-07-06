@@ -10,6 +10,7 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
   elasticsearch:
     uris: http://localhost:9200
+    enabled: false
   data:
     elasticsearch:
       repositories:
